@@ -1,0 +1,539 @@
+{% extends "base.html" %}
+
+{% block title %}AI Resume Feedback | Career Lens{% endblock %}
+
+{% block head %}
+<style>
+    .ai-review-loader {
+        width: min(100%, 440px);
+        padding: 1.25rem;
+        border: 1px solid rgba(13, 202, 240, 0.18);
+        border-radius: 1rem;
+        background: rgba(13, 202, 240, 0.04);
+    }
+
+    .ai-review-loader-line {
+        height: 0.7rem;
+        margin: 0.8rem 0;
+        border-radius: 1rem;
+        background: linear-gradient(90deg, rgba(148, 163, 184, 0.08), rgba(13, 202, 240, 0.28), rgba(148, 163, 184, 0.08));
+        background-size: 200% 100%;
+        animation: ai-loader-shimmer 1.5s ease-in-out infinite;
+    }
+
+    .ai-review-loader-line:nth-child(2) { width: 88%; animation-delay: 0.12s; }
+    .ai-review-loader-line:nth-child(4) { width: 68%; animation-delay: 0.24s; }
+
+    .ai-response-line {
+        animation: ai-line-in 0.28s ease-out both;
+        line-height: 1.65;
+    }
+
+    .ai-response-label {
+        color: #ffc107;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .ai-typing-dots {
+        display: inline-flex;
+        gap: 0.25rem;
+        align-items: center;
+        min-height: 1.25rem;
+    }
+
+    .ai-typing-dots span {
+        width: 0.38rem;
+        height: 0.38rem;
+        border-radius: 50%;
+        background: #0dcaf0;
+        animation: ai-dot-pulse 1s ease-in-out infinite;
+    }
+
+    .ai-typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+    .ai-typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+    @keyframes ai-loader-shimmer {
+        from { background-position: 100% 0; }
+        to { background-position: -100% 0; }
+    }
+
+    @keyframes ai-line-in {
+        from { opacity: 0; transform: translateY(5px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes ai-dot-pulse {
+        0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+        30% { opacity: 1; transform: translateY(-3px); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .ai-review-loader-line,
+        .ai-response-line,
+        .ai-typing-dots span { animation: none; }
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="container pt-5 mt-5 pb-5" style="min-height: 80vh;">
+    <!-- Header -->
+    <div class="mb-4 pb-3 border-bottom border-secondary border-opacity-25 fade-in-up">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-robot text-info me-2"></i>
+                <span class="typewriter-text">AI Resume Feedback</span>
+            </h2>
+            <p class="text-muted mb-0">Get detailed resume reviews, ATS optimization advice, and improvement tips powered by AI.</p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Input Panel -->
+        <div class="col-lg-5 stagger-1">
+            <div class="card glass-card border-0 rounded-4 h-100 gradient-border" style="--card-glow-color: rgba(13, 202, 240, 0.4);">
+                <div class="card-header bg-transparent pt-4 px-4 pb-2 border-0">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-sliders me-2 text-info"></i>Analysis Settings</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="mb-4">
+                        <ul class="nav nav-pills nav-fill gap-2 p-1 bg-dark bg-opacity-25 rounded-pill" id="inputTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active rounded-pill text-white fw-bold" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload-pane" type="button" role="tab"><i class="bi bi-cloud-arrow-up me-1"></i> Upload File</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link rounded-pill text-white fw-bold" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manual-pane" type="button" role="tab"><i class="bi bi-keyboard me-1"></i> Manual Entry</button>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="tab-content" id="inputTabsContent">
+                        <!-- File Upload Tab -->
+                        <div class="tab-pane fade show active" id="upload-pane" role="tabpanel" tabindex="0">
+                            <form id="feedbackFileForm">
+                                <div class="mb-3">
+                                    <label class="form-label text-muted small text-uppercase letter-spacing-1">Target Job Role</label>
+                                    <select class="form-select border-secondary border-opacity-50 text-body bg-transparent" id="targetRoleFile" required>
+                                        <option value="General" selected style="background:#1a1d2e; color:#e0e0e0;">General / Not Specified</option>
+                                        {% for cat in categories %}
+                                        <option value="{{ cat }}" style="background:#1a1d2e; color:#e0e0e0;">{{ cat }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="form-label text-muted small text-uppercase letter-spacing-1">Upload Resume</label>
+                                    <input type="file" class="form-control border-secondary border-opacity-50 text-body bg-transparent py-2" id="resumeFile" accept=".pdf,.docx" required>
+                                    <small class="text-muted mt-1 d-block"><i class="bi bi-file-earmark-pdf me-1"></i>Supports PDF and DOCX</small>
+                                </div>
+                                <button type="submit" id="btnGenFeedbackFile" class="btn btn-info w-100 py-3 rounded-3 fw-bold shadow-sm btn-ripple" style="color: #000; background-color: #0dcaf0; border-color: #0dcaf0;">
+                                    <i class="bi bi-cpu me-1"></i> Generate AI Feedback
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <!-- Manual Entry Tab -->
+                        <div class="tab-pane fade" id="manual-pane" role="tabpanel" tabindex="0">
+                            <form id="feedbackManualForm">
+                                <div class="mb-3">
+                                    <label class="form-label text-muted small text-uppercase letter-spacing-1">Target Job Role</label>
+                                    <select class="form-select border-secondary border-opacity-50 text-body bg-transparent" id="targetRoleStr" required>
+                                        <option value="General" selected style="background:#1a1d2e; color:#e0e0e0;">General / Not Specified</option>
+                                        {% for cat in categories %}
+                                        <option value="{{ cat }}" style="background:#1a1d2e; color:#e0e0e0;">{{ cat }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <label class="form-label text-muted small text-uppercase letter-spacing-1">Paste Resume Text</label>
+                                    <textarea class="form-control border-secondary border-opacity-50 text-body bg-transparent" id="resumeTextFb" rows="10" placeholder="Paste the text contents of your resume here..." required></textarea>
+                                    <small class="text-muted mt-1 d-block"><i class="bi bi-info-circle me-1"></i>Include work experience, projects, education, and skills</small>
+                                </div>
+                                
+                                <button type="submit" id="btnGenFeedbackManual" class="btn btn-info w-100 py-3 rounded-3 fw-bold shadow-sm btn-ripple" style="color: #000; background-color: #0dcaf0; border-color: #0dcaf0;">
+                                    <i class="bi bi-cpu me-1"></i> Generate AI Feedback
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Panel -->
+        <div class="col-lg-7 stagger-2">
+            <div class="card glass-card border-0 rounded-4 h-100">
+                <div class="card-header bg-transparent pt-4 px-4 pb-2 border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-robot me-2 text-info"></i>Analysis Report</h5>
+                    <div id="fbActions" class="d-none gap-2">
+                        <button id="btnCopyFb" class="btn btn-sm btn-outline-info rounded-pill px-3">
+                            <i class="bi bi-clipboard me-1"></i> Copy
+                        </button>
+                        <button id="btnDownloadFb" class="btn btn-sm btn-outline-light rounded-pill px-3">
+                            <i class="bi bi-download me-1"></i> Download
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-4 d-flex flex-column">
+                    <!-- Empty State -->
+                    <div id="fbEmptyState" class="d-flex flex-column align-items-center justify-content-center my-auto text-muted opacity-50 py-5">
+                        <div class="float-element mb-3">
+                            <i class="bi bi-robot" style="font-size: 3.5rem; color: #0dcaf0;"></i>
+                        </div>
+                        <p class="fw-semibold">Share your resume to get clear, role-specific feedback.</p>
+                        <small class="text-muted">Start with a resume review, then ask follow-up questions.</small>
+                    </div>
+
+                    <!-- Loader State -->
+                    <div id="fbLoaderState" class="d-none d-flex flex-column align-items-center justify-content-center my-auto py-5">
+                        <div class="ai-review-loader" role="status" aria-live="polite">
+                            <div class="d-flex align-items-center gap-2 text-info fw-semibold">
+                                <i class="bi bi-stars"></i>
+                                <span id="fbLoaderMessage">Reading your resume...</span>
+                            </div>
+                            <div class="ai-review-loader-line"></div>
+                            <div class="ai-review-loader-line"></div>
+                            <div class="ai-review-loader-line"></div>
+                            <small class="text-muted">Preparing focused feedback</small>
+                        </div>
+                    </div>
+
+                    <!-- Result Content -->
+                    <div id="fbResultContainer" class="d-none">
+                        <div id="fbConversation" class="d-flex flex-column gap-3 p-4 rounded-4 border border-secondary border-opacity-25 bg-dark bg-opacity-40 shadow-inner" style="max-height: 60vh; overflow-y: auto;" aria-live="polite" aria-label="Resume feedback conversation">
+                        </div>
+                        <form id="feedbackChatForm" class="d-none mt-3">
+                            <label for="feedbackChatMessage" class="visually-hidden">Ask a follow-up question</label>
+                            <div class="input-group">
+                                <textarea id="feedbackChatMessage" class="form-control border-secondary border-opacity-50 text-body bg-transparent" rows="2" maxlength="2000" placeholder="Ask a follow-up about your resume..." required></textarea>
+                                <button id="feedbackChatSend" class="btn btn-info px-4 fw-bold" type="submit">Send</button>
+                            </div>
+                            <small class="text-muted">Your resume stays attached to this conversation. Messages are not saved after you leave.</small>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const manualForm = document.getElementById('feedbackManualForm');
+    const fileForm = document.getElementById('feedbackFileForm');
+    const emptyState = document.getElementById('fbEmptyState');
+    const loaderState = document.getElementById('fbLoaderState');
+    const resultContainer = document.getElementById('fbResultContainer');
+    const actionsBar = document.getElementById('fbActions');
+    const conversationDiv = document.getElementById('fbConversation');
+    const chatForm = document.getElementById('feedbackChatForm');
+    const chatInput = document.getElementById('feedbackChatMessage');
+    const chatSend = document.getElementById('feedbackChatSend');
+    const copyButton = document.getElementById('btnCopyFb');
+    const downloadButton = document.getElementById('btnDownloadFb');
+    const loaderMessage = document.getElementById('fbLoaderMessage');
+
+    let resumeText = '';
+    let targetRole = 'General';
+    let history = [];
+    let transcript = '';
+    let loaderTimer;
+
+    function showLoading() {
+        emptyState.classList.add('d-none');
+        resultContainer.classList.add('d-none');
+        actionsBar.classList.add('d-none');
+        chatForm.classList.add('d-none');
+        loaderState.classList.remove('d-none');
+        loaderMessage.textContent = 'Reading your resume...';
+        clearInterval(loaderTimer);
+        const loadingMessages = [
+            'Reading your resume...',
+            'Identifying the most useful improvements...',
+            'Preparing focused feedback...'
+        ];
+        let messageIndex = 0;
+        loaderTimer = setInterval(() => {
+            messageIndex = (messageIndex + 1) % loadingMessages.length;
+            loaderMessage.textContent = loadingMessages[messageIndex];
+        }, 2200);
+    }
+
+    function animateResponse(content, text) {
+        const lines = text.split('\n').flatMap((line) => {
+            if (line.length <= 180) return [line];
+            return (line.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [line])
+                .map((sentence) => sentence.trim());
+        });
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (prefersReducedMotion) {
+            content.textContent = text;
+            return;
+        }
+
+        let lineIndex = 0;
+        function revealNextLine() {
+            if (lineIndex >= lines.length) return;
+            const lineElement = document.createElement('div');
+            lineElement.className = 'ai-response-line';
+            lineElement.textContent = lines[lineIndex].trim() || '\u00a0';
+            content.appendChild(lineElement);
+            lineIndex += 1;
+            conversationDiv.scrollTop = conversationDiv.scrollHeight;
+            if (lineIndex < lines.length) window.setTimeout(revealNextLine, 110);
+        }
+        revealNextLine();
+    }
+
+    function addMessage(role, text, sources = [], fallback = false) {
+        const message = document.createElement('div');
+        message.className = role === 'assistant'
+            ? 'align-self-start rounded-4 px-3 py-2 bg-secondary bg-opacity-25'
+            : 'align-self-end rounded-4 px-3 py-2 bg-info bg-opacity-25';
+        message.style.maxWidth = '90%';
+        message.style.whiteSpace = 'pre-wrap';
+
+        const label = document.createElement('strong');
+        label.className = 'd-block small text-info mb-1';
+        label.textContent = role === 'assistant' ? 'Career Lens' : 'You';
+        if (role === 'assistant' && fallback) {
+            const fallbackLabel = document.createElement('span');
+            fallbackLabel.className = 'ai-response-label ms-2';
+            fallbackLabel.textContent = 'General guidance';
+            label.appendChild(fallbackLabel);
+        }
+        const content = document.createElement('div');
+        if (role === 'assistant') {
+            animateResponse(content, text);
+        } else {
+            content.textContent = text;
+        }
+        message.append(label, content);
+
+        if (role === 'assistant' && Array.isArray(sources) && sources.length) {
+            const sourceList = document.createElement('div');
+            sourceList.className = 'mt-2 small';
+            const sourceLabel = document.createElement('strong');
+            sourceLabel.textContent = 'Sources';
+            sourceList.appendChild(sourceLabel);
+
+            sources.slice(0, 5).forEach((source) => {
+                if (!source || typeof source.url !== 'string' || !/^https?:\/\//i.test(source.url)) return;
+                const link = document.createElement('a');
+                link.className = 'd-block text-info';
+                link.href = source.url;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.textContent = source.title || source.url;
+                sourceList.appendChild(link);
+            });
+            if (sourceList.childElementCount > 1) message.appendChild(sourceList);
+        }
+
+        conversationDiv.appendChild(message);
+        conversationDiv.scrollTop = conversationDiv.scrollHeight;
+    }
+
+    function addTypingIndicator() {
+        const message = document.createElement('div');
+        message.className = 'align-self-start rounded-4 px-3 py-2 bg-secondary bg-opacity-25';
+        message.setAttribute('aria-label', 'Career Lens is preparing a reply');
+        const label = document.createElement('strong');
+        label.className = 'd-block small text-info mb-1';
+        label.textContent = 'Career Lens';
+        const dots = document.createElement('span');
+        dots.className = 'ai-typing-dots';
+        dots.setAttribute('aria-hidden', 'true');
+        for (let index = 0; index < 3; index += 1) {
+            dots.appendChild(document.createElement('span'));
+        }
+        message.append(label, dots);
+        conversationDiv.appendChild(message);
+        conversationDiv.scrollTop = conversationDiv.scrollHeight;
+        return message;
+    }
+
+    function appendSourcesToTranscript(sources) {
+        if (!Array.isArray(sources)) return;
+        const validSources = sources.filter((source) =>
+            source && typeof source.url === 'string' && /^https?:\/\//i.test(source.url)
+        ).slice(0, 5);
+        if (validSources.length) {
+            transcript += '\n\nSources:\n' + validSources
+                .map((source) => `- ${source.title || source.url}: ${source.url}`)
+                .join('\n');
+        }
+    }
+
+    function showConversation(firstResponse, text, role, sources = [], fallback = false) {
+        resumeText = text;
+        targetRole = role;
+        history = [{role: 'assistant', content: firstResponse}];
+        transcript = `Career Lens\n${firstResponse}`;
+        appendSourcesToTranscript(sources);
+        conversationDiv.replaceChildren();
+        addMessage('assistant', firstResponse, sources, fallback);
+        clearInterval(loaderTimer);
+        loaderState.classList.add('d-none');
+        emptyState.classList.add('d-none');
+        resultContainer.classList.remove('d-none');
+        chatForm.classList.remove('d-none');
+        actionsBar.classList.remove('d-none');
+        actionsBar.classList.add('d-flex');
+        chatInput.focus();
+    }
+
+    async function readResponse(response) {
+        try {
+            return await response.json();
+        } catch {
+            throw new Error('The server returned an unreadable response. Please try again.');
+        }
+    }
+
+    function setBusy(button, busy, busyText, originalContent) {
+        button.disabled = busy;
+        if (busy) {
+            button.textContent = busyText;
+        } else {
+            button.innerHTML = originalContent;
+        }
+    }
+
+    manualForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        history = [];
+        showLoading();
+        const button = document.getElementById('btnGenFeedbackManual');
+        const originalContent = button.innerHTML;
+        setBusy(button, true, 'Reviewing...', originalContent);
+        const text = document.getElementById('resumeTextFb').value.trim();
+        const role = document.getElementById('targetRoleStr').value;
+
+        try {
+            const response = await fetch('/api/generate-feedback', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({role, resume_text: text})
+            });
+            const data = await readResponse(response);
+            if (!response.ok && !data.fallback) throw new Error(data.error || 'Could not review this resume.');
+            showConversation(data.response, data.resume_text, role, data.sources, data.fallback);
+        } catch (error) {
+            clearInterval(loaderTimer);
+            loaderState.classList.add('d-none');
+            emptyState.classList.remove('d-none');
+            alert(error.message);
+        } finally {
+            setBusy(button, false, '', originalContent);
+        }
+    });
+
+    fileForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const fileInput = document.getElementById('resumeFile');
+        if (!fileInput.files.length) {
+            alert('Choose a PDF or DOCX resume first.');
+            return;
+        }
+        history = [];
+        showLoading();
+        const button = document.getElementById('btnGenFeedbackFile');
+        const originalContent = button.innerHTML;
+        const role = document.getElementById('targetRoleFile').value;
+        setBusy(button, true, 'Reviewing...', originalContent);
+
+        const formData = new FormData();
+        formData.append('role', role);
+        formData.append('resume', fileInput.files[0]);
+
+        try {
+            const response = await fetch('/api/generate-feedback-file', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await readResponse(response);
+            if (!response.ok && !data.fallback) throw new Error(data.error || 'Could not review this resume.');
+            showConversation(data.response, data.resume_text, role, data.sources, data.fallback);
+        } catch (error) {
+            clearInterval(loaderTimer);
+            loaderState.classList.add('d-none');
+            emptyState.classList.remove('d-none');
+            alert(error.message);
+        } finally {
+            setBusy(button, false, '', originalContent);
+        }
+    });
+
+    chatForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const message = chatInput.value.trim();
+        if (!message || !resumeText || chatSend.disabled) return;
+
+        const previousHistory = history.slice();
+        addMessage('user', message);
+        transcript += `\n\nYou\n${message}`;
+        chatInput.value = '';
+        chatInput.disabled = true;
+        chatSend.disabled = true;
+        chatSend.textContent = 'Thinking...';
+        const typingIndicator = addTypingIndicator();
+
+        try {
+            const response = await fetch('/api/resume-chat', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    resume_text: resumeText,
+                    role: targetRole,
+                    message,
+                    history: history.slice(-10)
+                })
+            });
+            const data = await readResponse(response);
+            if (!response.ok && !data.fallback) throw new Error(data.error || 'Could not send your message.');
+            typingIndicator.remove();
+            history = [...previousHistory, {role: 'user', content: message}, {role: 'assistant', content: data.response}];
+            transcript += `\n\nCareer Lens\n${data.response}`;
+            appendSourcesToTranscript(data.sources);
+            addMessage('assistant', data.response, data.sources, data.fallback);
+        } catch (error) {
+            typingIndicator.remove();
+            addMessage('assistant', `I couldn't send that message. ${error.message}`);
+        } finally {
+            chatInput.disabled = false;
+            chatSend.disabled = false;
+            chatSend.textContent = 'Send';
+            chatInput.focus();
+        }
+    });
+
+    copyButton.addEventListener('click', async () => {
+        if (!transcript) return;
+        try {
+            await navigator.clipboard.writeText(transcript);
+        } catch {
+            alert('Clipboard access was denied by the browser.');
+        }
+    });
+
+    downloadButton.addEventListener('click', () => {
+        if (!transcript) return;
+        const blob = new Blob([transcript], {type: 'text/plain;charset=utf-8'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'career-lens-resume-chat.txt';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+    });
+});
+</script>
+{% endblock %}
